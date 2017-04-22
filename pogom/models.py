@@ -104,6 +104,7 @@ class Pokemon(BaseModel):
     individual_stamina = SmallIntegerField(null=True)
     move_1 = SmallIntegerField(null=True)
     move_2 = SmallIntegerField(null=True)
+    cp = SmallIntegerField(null=True)
     weight = FloatField(null=True)
     height = FloatField(null=True)
     gender = SmallIntegerField(null=True)
@@ -1963,6 +1964,7 @@ def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue,
                 'individual_stamina': None,
                 'move_1': None,
                 'move_2': None,
+                'cp': None,
                 'height': None,
                 'weight': None,
                 'gender': None
@@ -1981,6 +1983,7 @@ def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue,
                         'individual_stamina', 0),
                     'move_1': pokemon_info['move_1'],
                     'move_2': pokemon_info['move_2'],
+                    'cp': pokemon_info['cp'],
                     'height': pokemon_info['height_m'],
                     'weight': pokemon_info['weight_kg'],
                     'gender': pokemon_info['pokemon_display']['gender'],
@@ -2727,3 +2730,9 @@ def database_migrate(db, old_ver):
                 migrator.add_index('pokestop', ('last_updated',), False)
             )
         log.info('Schema upgrade complete.')
+
+    if old_ver < 17:
+        migrate(
+            migrator.add_column('pokemon', 'cp',
+                                IntegerField(null=True, default=0))
+        )
