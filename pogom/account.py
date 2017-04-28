@@ -345,8 +345,8 @@ def spin_pokestop_request(api, fort, step_location):
 
 
 # The AccountSet returns a scheduler that cycles through different
-# sets of accounts (e.g. L25/L30). Each set is defined at runtime, and is
-# (currently) used to separate regular accounts from L25/L30 accounts.
+# sets of accounts (e.g. L30). Each set is defined at runtime, and is
+# (currently) used to separate regular accounts from L30 accounts.
 # TODO: Migrate the old account Queue to a real AccountScheduler, preferably
 # handled globally via database instead of per instance.
 # TODO: Accounts in the AccountSet are exempt from things like the

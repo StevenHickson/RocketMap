@@ -240,7 +240,7 @@
                         [env var: POGOMAP_KPH]
     -hkph HLVL_KPH, --hlvl-kph HLVL_KPH
                         Set a maximum speed in km/hour for scanner movement,
-                        for high-level (L25/L30) accounts. [env var:
+                        for high-level (L30) accounts. [env var:
                         POGOMAP_HLVL_KPH]
     -ldur LURE_DURATION, --lure-duration LURE_DURATION
                         Change duration for lures set on pokestops. This is

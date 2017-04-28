@@ -1789,7 +1789,7 @@ def parse_map(args, map_dict, step_location, db_update_queue, wh_update_queue,
     cells = map_dict['responses']['GET_MAP_OBJECTS']['map_cells']
     # Get the level for the pokestop spin, and to send to webhook.
     level = get_player_level(map_dict)
-    # Use separate level indicator for our L25/L30 encounters.
+    # Use separate level indicator for our L30 encounters.
     encounter_level = level
 
     # Helping out the GC.
