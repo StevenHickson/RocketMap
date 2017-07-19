@@ -424,6 +424,37 @@ class Pokestop(BaseModel):
         return pokestops
 
 
+class Settings(BaseModel):
+    db_version = SmallIntegerField(primary_key=True)
+    min_client_version = Utf8mb4CharField(max_length=6)
+    hash = Utf8mb4CharField(max_length=40)
+    asset_time = IntegerField()
+    template_time = IntegerField()
+    gmo_min_distance = SmallIntegerField()
+    gmo_min_interval = SmallIntegerField()
+    gmo_max_interval = SmallIntegerField()
+    fort_interaction_range = SmallIntegerField()
+    fort_far_interaction_range = SmallIntegerField()
+
+    @staticmethod
+    def get_remote_config():
+        query = (Settings
+                 .select(Settings.hash,
+                         Settings.asset_time,
+                         Settings.template_time)
+                 .dicts())
+
+        remote_config = {}
+        for rc in query:
+            remote_config = {
+                'hash': rc['hash'],
+                'asset_time': long(rc['asset_time']),
+                'template_time': long(rc['template_time'])
+            }
+
+        return remote_config
+
+
 class Gym(BaseModel):
     gym_id = Utf8mb4CharField(primary_key=True, max_length=50)
     team_id = SmallIntegerField()
@@ -2705,7 +2736,6 @@ def bulk_upsert(cls, data, db):
                 # constraint errors.
                 if args.db_type == 'mysql':
                     db.execute_sql('SET FOREIGN_KEY_CHECKS=0;')
-
                 # Use peewee's own implementation of the insert_many() method.
                 InsertQuery(cls, rows=data.values()[
                             i:min(i + step, num_rows)]).upsert().execute()
@@ -2735,10 +2765,11 @@ def bulk_upsert(cls, data, db):
 
 def create_tables(db):
     db.connect()
-    tables = [Pokemon, Pokestop, Gym, Raid, ScannedLocation, GymDetails,
-              GymMember, GymPokemon, Trainer, MainWorker, WorkerStatus,
-              SpawnPoint, ScanSpawnPoint, SpawnpointDetectionData,
-              Token, LocationAltitude, PlayerLocale, HashKeys]
+    tables = [Pokemon, Pokestop, Settings, Gym, Raid, ScannedLocation,
+              GymDetails, GymMember, GymPokemon, Trainer, MainWorker,
+              WorkerStatus,  SpawnPoint, ScanSpawnPoint,
+              SpawnpointDetectionData, Token, LocationAltitude, PlayerLocale,
+              HashKeys]
     for table in tables:
         if not table.table_exists():
             log.info('Creating table: %s', table.__name__)
@@ -2749,8 +2780,8 @@ def create_tables(db):
 
 
 def drop_tables(db):
-    tables = [Pokemon, Pokestop, Gym, Raid, ScannedLocation, Versions,
-              GymDetails, GymMember, GymPokemon, Trainer, MainWorker,
+    tables = [Pokemon, Pokestop, Settings, Gym, Raid, ScannedLocation,
+              Versions, GymDetails, GymMember, GymPokemon, Trainer, MainWorker,
               WorkerStatus, SpawnPoint, ScanSpawnPoint,
               SpawnpointDetectionData, LocationAltitude, PlayerLocale,
               Token, HashKeys]
