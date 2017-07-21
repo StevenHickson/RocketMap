@@ -28,6 +28,7 @@ import requests
 import schedulers
 import terminalsize
 import timeit
+import copy
 
 from datetime import datetime
 from threading import Thread, Lock
@@ -42,9 +43,11 @@ from pgoapi.utilities import f2i
 from pgoapi import utilities as util
 from pgoapi.hash_server import (HashServer, BadHashRequestException,
                                 HashingOfflineException)
-from .models import (parse_map, GymDetails, parse_gyms, MainWorker,
+
+from . import config
+from .models import (Settings, parse_map, GymDetails, parse_gyms, MainWorker,
                      WorkerStatus, HashKeys)
-from .utils import now, clear_dict_response
+from .utils import now, clear_dict_response, equi_rect_distance
 from .transform import get_new_coords, jitter_location
 from .account import (setup_api, check_login, get_tutorial_state,
                       complete_tutorial, AccountSet, parse_new_timestamp_ms)
@@ -812,6 +815,8 @@ def search_worker_thread(args, account_queue, account_sets,
             api = setup_api(args, status, account)
 
             # The forever loop for the searches.
+            step_location = (0, 0, 0)
+            last_location = (0, 0, 0)
             while True:
                 status['active'] = True
                 while is_paused(control_flags):
@@ -937,6 +942,10 @@ def search_worker_thread(args, account_queue, account_sets,
                 status['message'] = 'Logging in...'
                 check_login(args, account, api, step_location,
                             status['proxy_url'])
+                db_settings = {
+                    config['settings']['db_version']: config['settings']
+                }
+                dbq.put((Settings, db_settings))
 
                 # Only run this when it's the account's first login, after
                 # check_login().
@@ -962,10 +971,42 @@ def search_worker_thread(args, account_queue, account_sets,
                 status['message'] = messages['search']
                 log.info(status['message'])
 
+                distance = (equi_rect_distance(last_location, step_location) *
+                            1000.0)
+                mps = args.kph / 3.6
+                count = int(distance/mps/10)
+                walk_location = copy.deepcopy(last_location)
+                for i in range(1, count):
+                    if count > 8:
+                        break
+
+                    factor = i/float(count)
+                    walk_location = (
+                        last_location[0] + factor * (step_location[0] -
+                                                     last_location[0]),
+                        last_location[1] + factor * (step_location[1] -
+                                                     last_location[1]),
+                        last_location[2] + factor * (step_location[2] -
+                                                     last_location[2])
+                    )
+                    scan_date = datetime.utcnow()
+                    response_dict = map_request(api, account, walk_location,
+                                                args.no_jitter)
+                    parsed = parse_map(args, response_dict, walk_location,
+                                       dbq, whq, key_scheduler, api, status,
+                                       scan_date, account, account_sets)
+                    status['last_scan_date'] = datetime.utcnow()
+                    status['message'] = ('Search at {:6f},{:6f} completed ' +
+                                         'with {} finds.').format(
+                        walk_location[0], walk_location[1],
+                        parsed['count'])
+                    time.sleep(config['settings']['gmo_min_interval'])
+
                 # Make the actual request.
                 scan_date = datetime.utcnow()
                 response_dict = map_request(api, account, step_location,
                                             args.no_jitter)
+                last_location = copy.deepcopy(step_location)
                 status['last_scan_date'] = datetime.utcnow()
 
                 # Record the time and the place that the worker made the
@@ -1151,7 +1192,9 @@ def search_worker_thread(args, account_queue, account_sets,
                               key_instance['maximum'])
 
                 # Delay the desired amount after "scan" completion.
-                delay = scheduler.delay(status['last_scan_date'])
+                delay = min(config['settings']
+                                  ['gmo_max_interval'],
+                            scheduler.delay(status['last_scan_date']))
 
                 status['message'] += ' Sleeping {}s until {}.'.format(
                     delay,
